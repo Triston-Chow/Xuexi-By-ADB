@@ -2,7 +2,8 @@
 基于ADB的“学习强国”APP自动化脚本
 
 ## 使用条件
-建议在Windows 10的CMD中运行，装有ADB驱动、Python3.7以上环境。
+建议在Windows 10的CMD中运行，装有ADB驱动、Python3.7以上环境。  
+直接运行xuexi.py主程序。
 
 ## 参数说明
 共两个参数，位置固定，皆可省略。
