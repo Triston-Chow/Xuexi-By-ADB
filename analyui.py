@@ -2,8 +2,8 @@
 # -*- encoding: utf-8 -*-
 '''
 @File    :   analyui.py
-@Time    :   2021/01/05
-@Version :   1.0
+@Time    :   2021/01/10
+@Version :   1.0.1
 @Author  :   Triston Chow
 @Contact :   triston2021@outlook.com
 @License :   (C)Copyright 2020-2021, Triston Chow
@@ -24,20 +24,22 @@ class AnalyUIText(EasyADB):
         else:
             self.device_tag = device_tag
         
-        self.__dump_count = 0
+        self._dump_count = 0
+        self._ui_lines = []
     
     
     def gen_ui_lines(self) -> list:
         '''
         dump设备当前的UI层级文件并复制到本地当前目录下
-        读取UI层级文件并按标签分行，作为列表返回
+        读取UI层级文件并提取文本显示组件，作为列表返回
         '''
         if (device_path := self.uiDump()) != None:
-            local_path = f'{self.cwd}/{self.device_tag}_ui_{self.__dump_count:03d}.xml'
-            self.__dump_count += 1
+            local_path = f'{self.cwd}/{self.device_tag}_ui_{self._dump_count:03d}.xml'
+            self._dump_count += 1
             if (uifile := self.pullFile(device_path, local_path)) != None:
                 with open(uifile, encoding='utf-8') as f:
-                    result = f.read().split('>')
+                    lines = f.read().split('>')
+                result = [line for line in lines if 'class="android.widget.TextView"' in line]
                 os.remove(uifile)
                 return result
     
@@ -61,11 +63,11 @@ class AnalyUIText(EasyADB):
             return x2-100, y1-10
     
     
-    def find_text_in_ui(self, keywords:str, getcoords=False):
+    def find_ui_text(self, keywords:str, getcoords=False):
         '''
-        逐行查找UI层级文件,匹配关键词,返回bool或者坐标值
+        逐行查找UI层级文件,匹配单个关键词,返回bool或坐标值
         '''
-        if (lines := self.gen_ui_lines()) != None:
+        if (lines := self._ui_lines) != None:
             for line in lines:
                 if keywords in line:
                     if getcoords:
@@ -77,3 +79,25 @@ class AnalyUIText(EasyADB):
                 exit(0)
             else:
                 return False
+    
+    
+    def find_ui_multi_text(self, *keywords, getcoords=False):
+        result = {}
+        '''
+        逐行查找UI层级文件,匹配多个关键词,返回包含bool和坐标值的字典
+        '''
+        if (lines := self._ui_lines) != None:
+            for i, keyword in enumerate(keywords) :
+                found = False
+                for line in lines:
+                    if keyword in line:
+                        found = True
+                        if getcoords:
+                            coords = self.get_click_coords(line, 'center')
+                        else:
+                            coords = ()
+                        break
+                if not found:
+                    coords = ()
+                result.update({i:{'found':found, 'coords':coords}})
+            return result
