@@ -2,8 +2,8 @@
 # -*- encoding: utf-8 -*-
 '''
 @File    :   xuexi.py
-@Time    :   2021/01/07
-@Version :   1.0
+@Time    :   2021/01/10
+@Version :   1.0.1
 @Author  :   Triston Chow
 @Contact :   triston2021@outlook.com
 @License :   (C)Copyright 2020-2021, Triston Chow
@@ -32,16 +32,23 @@ class XuexiByADB(AnalyUIText):
         print(f'\r正在定位到学习栏目，请稍候...', end='')
         
         if pattern == 'article':
-            x, y = self.find_text_in_ui('text="新思想"', getcoords=True)
-            self.touchScreen(x, y)
-        elif pattern == 'video':
-            x, y = self.find_text_in_ui('text="电视台"', getcoords=True)
-            self.touchScreen(x, y)
-            x, y = self.find_text_in_ui('text="学习视频"', getcoords=True)
+            self._ui_lines = self.gen_ui_lines()
+            x, y = self.find_ui_text('text="新思想"', getcoords=True)
             self.touchScreen(x, y)
         
-        x1, y1 = self.find_text_in_ui(f'text="{topics[pattern][0][1]}"', getcoords=True)
-        x2, y2 = self.find_text_in_ui(f'text="{topics[pattern][3][1]}"', getcoords=True)
+        elif pattern == 'video':
+            self._ui_lines = self.gen_ui_lines()
+            x, y = self.find_ui_text('text="电视台"', getcoords=True)
+            self.touchScreen(x, y)
+            
+            self._ui_lines = self.gen_ui_lines()
+            x, y = self.find_ui_text('text="学习视频"', getcoords=True)
+            self.touchScreen(x, y)
+        
+        self._ui_lines = self.gen_ui_lines()
+        found_topic = self.find_ui_multi_text(f'text="{topics[pattern][0][1]}"', f'text="{topics[pattern][3][1]}"', getcoords=True)
+        x1, y1 = found_topic[0]['coords']
+        x2, y2 = found_topic[1]['coords']
         
         times, topic = topics[pattern][week_sn]
         print(f'\r今天是{week[week_sn]}，按计划学习【{topic}】')
@@ -49,7 +56,8 @@ class XuexiByADB(AnalyUIText):
         for i in range(times):
             self.swipeScreen(x2, y2, x1, y1, 600)
         
-        x, y = self.find_text_in_ui(f'text="{topic}"', getcoords=True)
+        self._ui_lines = self.gen_ui_lines()
+        x, y = self.find_ui_text(f'text="{topic}"', getcoords=True)
         self.touchScreen(x, y)
     
     
@@ -57,7 +65,7 @@ class XuexiByADB(AnalyUIText):
         title_lines = []  # 第一遍过滤后得到的含有标题行列表
         result = []  # 返回结果列表
         
-        if (lines := self.gen_ui_lines()) != None:
+        if (lines := self._ui_lines) != None:
             for line in lines:
                 if 'general_card_title_id' in line:
                     title_lines.append(line)
@@ -90,7 +98,7 @@ class XuexiByADB(AnalyUIText):
             '学习新视界', '奋斗新时代', '强军之路', '绿水青山', '一带一路', '初心使命', '强国建设',
             }
         
-        if (lines := self.gen_ui_lines()) != None:
+        if (lines := self._ui_lines) != None:
             for line in lines:
                 if 'index="0"'in line or 'index="1"' in line:
                     if 'text=' in line and 'text=""' not in line:
@@ -122,8 +130,8 @@ class XuexiByADB(AnalyUIText):
         completed = []  # 已完成的标题列表
         new_title = True  # 主循环条件(执行开关)
         trigger_keywords = {
-            'name': {'article': '篇文章', 'video': '条视频'},
-            'back': {'article': 'text="观点"', 'video': 'text="重新播放"'},
+            'name': {'article':'篇文章', 'video':'条视频'},
+            'end': {'article':'text="观点"', 'video':'text="重新播放"', 'title':'text="你已经看到我的底线了"'},
             'maxlen': {'article': 40, 'video': 36},
             'passtime': {'article': 370, 'video': 390}
             }
@@ -131,7 +139,8 @@ class XuexiByADB(AnalyUIText):
         print('='*120)
         
         while new_title:
-            if self.find_text_in_ui('你已经看到我的底线了'):
+            self._ui_lines = self.gen_ui_lines()
+            if self.find_ui_text(trigger_keywords["end"]["title"]):
                 new_title = False
             
             '''
@@ -171,13 +180,14 @@ class XuexiByADB(AnalyUIText):
                         
                         start_cputime = time.perf_counter()
                         while True:
-                            if self.find_text_in_ui(trigger_keywords["back"][pattern]):
+                            self._ui_lines = self.gen_ui_lines()
+                            if self.find_ui_text(trigger_keywords["end"][pattern]):
                                 break
                             else:
                                 if pattern == 'article':
                                     self.swipeScreen(540, 1440, 540, 480, 2000)
                                 elif pattern == 'video':
-                                    time.sleep(6)
+                                    time.sleep(1)
                         single_time = time.perf_counter()- start_cputime
                         
                         print(f'<第{count}{trigger_keywords["name"][pattern]}耗时：{single_time:6.2f}s>'.rjust(113, '-'))
