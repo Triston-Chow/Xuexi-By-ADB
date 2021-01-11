@@ -2,7 +2,7 @@
 # -*- encoding: utf-8 -*-
 '''
 @File    :   xuexi.py
-@Time    :   2021/01/10
+@Time    :   2021/01/11
 @Version :   1.0.1
 @Author  :   Triston Chow
 @Contact :   triston2021@outlook.com
@@ -32,57 +32,51 @@ class XuexiByADB(AnalyUIText):
         print(f'\r正在定位到学习栏目，请稍候...', end='')
         
         if pattern == 'article':
-            self._ui_lines = self.gen_ui_lines()
             x, y = self.find_ui_text('text="新思想"', getcoords=True)
             self.touchScreen(x, y)
         
         elif pattern == 'video':
-            self._ui_lines = self.gen_ui_lines()
             x, y = self.find_ui_text('text="电视台"', getcoords=True)
             self.touchScreen(x, y)
             
-            self._ui_lines = self.gen_ui_lines()
             x, y = self.find_ui_text('text="学习视频"', getcoords=True)
             self.touchScreen(x, y)
         
-        self._ui_lines = self.gen_ui_lines()
-        found_topic = self.find_ui_multi_text(f'text="{topics[pattern][0][1]}"', f'text="{topics[pattern][3][1]}"', getcoords=True)
-        x1, y1 = found_topic[0]['coords']
-        x2, y2 = found_topic[1]['coords']
-        
         times, topic = topics[pattern][week_sn]
-        print(f'\r今天是{week[week_sn]}，按计划学习【{topic}】')
         
-        for i in range(times):
-            self.swipeScreen(x2, y2, x1, y1, 600)
+        if week_sn > 3:
+            x1, y1 = self.find_ui_text(f'text="{topics[pattern][0][1]}"', getcoords=True)
+            x2, y2 = self.find_ui_text(f'text="{topics[pattern][3][1]}"', getcoords=True, redump=False)
+            for i in range(times):
+                self.swipeScreen(x2, y2, x1, y1, 600)
         
-        self._ui_lines = self.gen_ui_lines()
         x, y = self.find_ui_text(f'text="{topic}"', getcoords=True)
         self.touchScreen(x, y)
+        
+        print(f'\r今天是{week[week_sn]}，按计划学习【{topic}】')
     
     
     def get_article_titles(self) -> list:
         title_lines = []  # 第一遍过滤后得到的含有标题行列表
         result = []  # 返回结果列表
         
-        if (lines := self._ui_lines) != None:
-            for line in lines:
-                if 'general_card_title_id' in line:
-                    title_lines.append(line)
+        for line in self._ui_lines:
+            if 'general_card_title_id' in line:
+                title_lines.append(line)
+        
+        for line in title_lines:
+            text = line.split('" ')[1].strip('text="')
+            '''
+            根据标题的位置(最上、最下、中间)设定点击坐标
+            '''
+            if line == title_lines[0]:
+                x, y = self.get_click_coords(line, 'article_top')
+            elif line == title_lines[-1]:
+                x, y = self.get_click_coords(line, 'article_bottom')
+            else:
+                x, y = self.get_click_coords(line, 'center')
             
-            for line in title_lines:
-                text = line.split('" ')[1].strip('text="')
-                '''
-                根据标题的位置(最上、最下、中间)设定点击坐标
-                '''
-                if line == title_lines[0]:
-                    x, y = self.get_click_coords(line, 'article_top')
-                elif line == title_lines[-1]:
-                    x, y = self.get_click_coords(line, 'article_bottom')
-                else:
-                    x, y = self.get_click_coords(line, 'center')
-                
-                result.append({'text':text, 'coords':(x,y)})
+            result.append({'text':text, 'coords':(x,y)})
         return result
     
     
@@ -98,29 +92,28 @@ class XuexiByADB(AnalyUIText):
             '学习新视界', '奋斗新时代', '强军之路', '绿水青山', '一带一路', '初心使命', '强国建设',
             }
         
-        if (lines := self._ui_lines) != None:
-            for line in lines:
-                if 'index="0"'in line or 'index="1"' in line:
-                    if 'text=' in line and 'text=""' not in line:
-                        usable_lines.append(line)
-            
-            for line in usable_lines:
-                text = line.split('" ')[1].strip('text="')
-                if text not in avoid_keywords and not text.isdecimal():
-                    '''
-                    正则匹配文本内容是否为时间长度“mm:ss”形式，且范围从'0:00'至'23:59'
-                    若匹配，则取文本内容和坐标值，并将操作下一行的标志变量置为True
-                    若不匹配，根据标志变量状态添加记录
-                    '''
-                    match_length = re.compile(r'^(([0-9]{1})|([0-1][0-9])|([1-2][0-3])):([0-5][0-9])$').search(text)
-                    if match_length != None:
-                        length = match_length.group()
-                        x, y = self.get_click_coords(line, 'start')
-                        title_flag = True
-                    else:
-                        if title_flag:
-                            result.append({'text':text, 'length':length, 'coords':(x,y)})
-                            title_flag = False
+        for line in self._ui_lines:
+            if 'index="0"'in line or 'index="1"' in line:
+                if 'text=' in line and 'text=""' not in line:
+                    usable_lines.append(line)
+        
+        for line in usable_lines:
+            text = line.split('" ')[1].strip('text="')
+            if text not in avoid_keywords and not text.isdecimal():
+                '''
+                正则匹配文本内容是否为时间长度“mm:ss”形式，且范围从'0:00'至'23:59'
+                若匹配，则取文本内容和坐标值，并将操作下一行的标志变量置为True
+                若不匹配，根据标志变量状态添加记录
+                '''
+                match_length = re.compile(r'^(([0-9]{1})|([0-1][0-9])|([1-2][0-3])):([0-5][0-9])$').search(text)
+                if match_length != None:
+                    length = match_length.group()
+                    x, y = self.get_click_coords(line, 'start')
+                    title_flag = True
+                else:
+                    if title_flag:
+                        result.append({'text':text, 'length':length, 'coords':(x,y)})
+                        title_flag = False
         return result
     
     
@@ -139,7 +132,6 @@ class XuexiByADB(AnalyUIText):
         print('='*120)
         
         while new_title:
-            self._ui_lines = self.gen_ui_lines()
             if self.find_ui_text(trigger_keywords["end"]["title"]):
                 new_title = False
             
@@ -180,7 +172,6 @@ class XuexiByADB(AnalyUIText):
                         
                         start_cputime = time.perf_counter()
                         while True:
-                            self._ui_lines = self.gen_ui_lines()
                             if self.find_ui_text(trigger_keywords["end"][pattern]):
                                 break
                             else:
