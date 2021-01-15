@@ -3,7 +3,7 @@
 '''
 @File    :   easyadb.py
 @Time    :   2020/03/30
-@Version :   1.0
+@Version :   1.0.0
 @Author  :   Triston Chow
 @Contact :   triston2021@outlook.com
 @License :   (C)Copyright 2020-2021, Triston Chow
