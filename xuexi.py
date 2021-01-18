@@ -57,12 +57,8 @@ class XuexiByADB(AnalyUIText):
     
     
     def get_article_titles(self) -> list:
-        title_lines = []  # 第一遍过滤后得到的含有标题行列表
-        result = []  # 返回结果列表
-        
-        for line in self._ui_lines:
-            if 'general_card_title_id' in line:
-                title_lines.append(line)
+        title_lines = [line for line in self._ui_lines if 'general_card_title_id' in line]
+        result = []
         
         for line in title_lines:
             text = line.split('" ')[1].strip('text="')
